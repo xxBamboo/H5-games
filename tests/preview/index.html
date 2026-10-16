@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>JS 房间资源预览</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      background: #171a1f;
+      color: #f4f5f7;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body { margin: 0; min-width: 320px; overflow: hidden; background: #171a1f; }
+
+    .app { display: grid; grid-template-rows: auto 1fr; height: 100%; }
+    .toolbar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-height: 58px;
+      padding: 10px 16px;
+      border-bottom: 1px solid #303640;
+      background: #20252d;
+    }
+
+    .title { display: flex; flex-direction: column; gap: 2px; min-width: 190px; margin-right: auto; }
+    .title strong { font-size: 15px; }
+    .title span { color: #9ca6b5; font-size: 12px; }
+    .controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .controls.hidden { display: none; }
+    .mode-switch {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      padding: 3px;
+      border: 1px solid #424b58;
+      border-radius: 8px;
+      background: #171b21;
+    }
+    .mode-switch button {
+      border: 0;
+      border-radius: 5px;
+      padding: 6px 9px;
+      background: transparent;
+      color: #aeb8c6;
+      font-size: 13px;
+    }
+    .mode-switch button:hover { background: #2a313b; }
+    .mode-switch button.active { background: #547da8; color: #fff; }
+    button, label { font: inherit; color: #eef1f5; }
+    button {
+      border: 1px solid #424b58;
+      border-radius: 6px;
+      padding: 7px 10px;
+      background: #2a313b;
+      cursor: pointer;
+    }
+    button:hover { background: #343d49; }
+    button:active { background: #242a32; }
+    .check {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 4px;
+      color: #c4ccd7;
+      font-size: 13px;
+      white-space: nowrap;
+    }
+    .check input { accent-color: #77b7ff; }
+    .zoom-readout {
+      min-width: 58px;
+      color: #aeb8c6;
+      font: 12px ui-monospace, SFMono-Regular, Consolas, monospace;
+      text-align: right;
+    }
+
+    .viewport {
+      position: relative;
+      min-height: 0;
+      overflow: hidden;
+      display: grid;
+      place-items: center;
+      padding: 20px;
+      background:
+        linear-gradient(45deg, #20252d 25%, transparent 25%) 0 0 / 24px 24px,
+        linear-gradient(-45deg, #20252d 25%, transparent 25%) 0 0 / 24px 24px,
+        linear-gradient(45deg, transparent 75%, #20252d 75%) 0 0 / 24px 24px,
+        linear-gradient(-45deg, transparent 75%, #20252d 75%) 0 0 / 24px 24px,
+        #1c2026;
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+      cursor: grab;
+    }
+    .viewport.dragging { cursor: grabbing; }
+    canvas { display: block; width: 100%; height: 100%; max-width: 100%; max-height: 100%; }
+    .hint {
+      position: absolute;
+      left: 20px;
+      bottom: 14px;
+      margin: 0;
+      padding: 6px 9px;
+      border: 1px solid #3a424e;
+      border-radius: 5px;
+      background: #171a1fcc;
+      color: #aeb8c6;
+      font-size: 12px;
+      pointer-events: none;
+    }
+
+    .screen-viewport {
+      position: relative;
+      min-height: 0;
+      overflow: auto;
+      display: grid;
+      place-items: center;
+      padding: 20px;
+      background:
+        linear-gradient(45deg, #20252d 25%, transparent 25%) 0 0 / 24px 24px,
+        linear-gradient(-45deg, #20252d 25%, transparent 25%) 0 0 / 24px 24px,
+        linear-gradient(45deg, transparent 75%, #20252d 75%) 0 0 / 24px 24px,
+        linear-gradient(-45deg, transparent 75%, #20252d 75%) 0 0 / 24px 24px,
+        #1c2026;
+    }
+    .screen-viewport.hidden, .viewport.hidden { display: none; }
+    .mock-screen {
+      position: relative;
+      width: min(100%, 460px);
+      height: min(820px, calc(100vh - 118px));
+      min-height: 560px;
+      overflow: hidden;
+      border: 1px solid #414b59;
+      border-radius: 16px;
+      background: radial-gradient(circle at 50% 35%, #2a2a4a 0%, #15152b 100%);
+      box-shadow: 0 18px 45px rgba(0, 0, 0, .35);
+    }
+    .mock-panel {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 18px;
+      padding: 24px;
+      color: #fff;
+      text-align: center;
+    }
+    .mock-panel h1 { margin: 0; font-size: 30px; line-height: 1.3; }
+    .mock-panel p { margin: 0; max-width: 420px; font-size: 15px; line-height: 1.7; opacity: .85; white-space: pre-line; }
+    .mock-panel .big { font-size: 46px; }
+    .mock-emoji { font-size: 56px; }
+    .mock-btn {
+      margin-top: 6px;
+      padding: 14px 42px;
+      border: 0;
+      border-radius: 999px;
+      background: linear-gradient(135deg, #ff9f43, #ff6b6b);
+      color: #fff;
+      font-size: 19px;
+      font-weight: 700;
+      box-shadow: 0 6px 20px rgba(255, 107, 107, .45);
+    }
+    .mock-btn.ghost {
+      background: rgba(255, 255, 255, .12);
+      box-shadow: none;
+      font-size: 16px;
+      padding: 12px 34px;
+    }
+    .mock-btn-row { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+    .mock-tip {
+      max-width: 350px;
+      padding: 12px 20px;
+      border-radius: 14px;
+      background: rgba(255, 255, 255, .08);
+      color: #d9dce7;
+      font-size: 13px;
+      line-height: 1.8;
+    }
+    .mock-level-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+      width: 100%;
+      max-width: 360px;
+    }
+    .mock-level-card {
+      aspect-ratio: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      border-radius: 18px;
+      background: linear-gradient(135deg, #ff9f43, #ff6b6b);
+      color: #fff;
+      box-shadow: 0 5px 16px rgba(255, 107, 107, .4);
+      font-weight: 700;
+    }
+    .mock-level-card.locked {
+      background: rgba(255, 255, 255, .1);
+      color: rgba(255, 255, 255, .45);
+      box-shadow: none;
+    }
+    .mock-level-card .num { font-size: 30px; }
+    .mock-level-card .name { font-size: 11px; opacity: .9; font-weight: 500; }
+    .mock-level-card .star { height: 14px; color: #ffe08a; font-size: 12px; }
+    .mock-game {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(160deg, #5e6d82 0%, #273347 55%, #161b28 100%);
+    }
+    .mock-game::after {
+      content: '';
+      position: absolute;
+      inset: 42% 0 0;
+      background: repeating-linear-gradient(166deg, rgba(255, 255, 255, .05) 0 2px, transparent 2px 56px);
+      opacity: .75;
+    }
+    .mock-hud {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      right: 16px;
+      z-index: 2;
+      display: flex;
+      justify-content: space-between;
+      color: #fff;
+      font-weight: 700;
+      text-shadow: 0 2px 6px rgba(0, 0, 0, .5);
+    }
+    .mock-pill { padding: 8px 14px; border-radius: 999px; background: rgba(0, 0, 0, .45); }
+    .mock-menu {
+      position: absolute;
+      top: 88px;
+      right: 18px;
+      z-index: 3;
+      width: 190px;
+      overflow: hidden;
+      border-radius: 14px;
+      background: rgba(28, 28, 48, .96);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, .5);
+    }
+    .mock-menu div { padding: 15px 18px; border-bottom: 1px solid rgba(255, 255, 255, .08); color: #fff; text-align: left; }
+    .mock-menu div:last-child { border-bottom: 0; }
+    .mock-menu-button { position: absolute; top: 82px; right: 18px; z-index: 2; padding: 9px 12px; border-radius: 10px; background: rgba(0, 0, 0, .45); color: #fff; font-size: 20px; }
+    @media (max-width: 680px) {
+      body { overflow: auto; }
+      .app { min-height: 100%; height: auto; }
+      .toolbar { align-items: flex-start; flex-direction: column; }
+      .title { margin-right: 0; }
+      .controls { width: 100%; }
+      .viewport { min-height: 70vh; padding: 8px; }
+      .hint { left: 8px; bottom: 8px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="toolbar">
+      <div class="title">
+        <strong>JS 房间资源预览</strong>
+        <span>src/scene.js | 世界尺寸 2400 x 1080</span>
+      </div>
+
+      <div id="modeSwitch" class="mode-switch" aria-label="预览页面选择">
+        <button type="button" data-mode="room" class="active">房间</button>
+        <button type="button" data-mode="home">主页</button>
+        <button type="button" data-mode="levels">关卡</button>
+        <button type="button" data-mode="win">过关</button>
+        <button type="button" data-mode="lose">失败</button>
+        <button type="button" data-mode="menu">菜单</button>
+      </div>
+
+      <div id="roomControls" class="controls">
+        <label class="check">
+          <input id="gridToggle" type="checkbox" />
+          显示坐标网格
+        </label>
+        <button id="fitButton" type="button">适应窗口</button>
+        <button id="resetButton" type="button">重置视图</button>
+        <button id="exportButton" type="button">导出 PNG</button>
+        <span id="zoomReadout" class="zoom-readout">100%</span>
+      </div>
+    </header>
+
+    <main id="viewport" class="viewport" aria-label="房间资源预览区域">
+      <canvas id="canvas"></canvas>
+      <p class="hint">拖拽平移 | 滚轮缩放 | 双击重置</p>
+    </main>
+
+    <main id="screenViewport" class="screen-viewport hidden" aria-label="页面状态预览区域">
+      <div id="mockScreen" class="mock-screen"></div>
+    </main>
+  </div>
+
+  <!-- scene.js uses ordinary scripts and global ctx/WORLD, matching the game load order. -->
+  <script src="../../src/config.js"></script>
+  <script src="../../src/scene.js"></script>
+  <script src="./room-preview.js"></script>
+  <script src="./page-preview.js"></script>
+</body>
+</html>
