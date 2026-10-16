@@ -1,0 +1,17 @@
+{
+  "name": "where-are-my-glasses",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "douyin:build": "node scripts/build-douyin.mjs",
+    "douyin:check": "node scripts/build-douyin.mjs --check",
+    "douyin:smoke": "node scripts/build-douyin.mjs && node tests/douyin-smoke.js",
+    "douyin:login": "tmg login",
+    "douyin:open": "node scripts/douyin-cli.mjs open",
+    "douyin:preview": "node scripts/douyin-cli.mjs preview",
+    "douyin:upload": "node scripts/douyin-cli.mjs upload"
+  },
+  "devDependencies": {
+    "tt-minigame-ide-cli": "2.1.1"
+  }
+}

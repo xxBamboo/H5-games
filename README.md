@@ -1,6 +1,6 @@
 # 我的眼镜在哪里？
 
-一个 2D 卡通风格的 H5 限时寻物小游戏。玩家扮演一名近视人物，在凌乱的房间里凭模糊视觉找到并戴上眼镜即可过关。纯静态、无依赖、无需联网。
+一个 2D 卡通风格的限时寻物小游戏。玩家扮演一名近视人物，在凌乱的房间里凭模糊视觉找到并戴上眼镜即可过关。浏览器版纯静态、无运行时依赖、无需联网；另提供抖音小游戏工程。
 
 ## 运行
 
@@ -26,8 +26,11 @@ python3 -m http.server 8000
 ## 目录结构
 
 ```
-glasses-quest/
+H5-games/
 ├── index.html            入口页面（HUD、面板、菜单的 DOM 与样式）
+├── package.json          抖音小游戏 CLI 命令与依赖
+├── douyin/               抖音小游戏工程（game.js 由构建命令生成）
+├── scripts/              小游戏运行逻辑、构建和 CLI 包装命令
 ├── README.md
 ├── src/                  游戏源码（普通 <script> 顺序加载，共享全局作用域）
 │   ├── config.js         常量、关卡配置 LEVELS、全局状态 game/cam/glasses
@@ -38,7 +41,8 @@ glasses-quest/
 │   ├── ui.js             首页/关卡选择/结束面板、游戏内菜单、关卡流转
 │   └── main.js           主循环 loop() 与初始化 init()（最后加载）
 ├── tests/
-│   └── test.js           Puppeteer 回归测试（导航、玩法、胜负全流程）
+│   ├── test.js           Puppeteer 回归测试（浏览器版）
+│   └── douyin-smoke.js   抖音小游戏状态流转冒烟测试
 └── docs/
     └── screenshots/      测试与玩法截图证据
 ```
@@ -59,3 +63,26 @@ node tests/test.js              # 输出各断言结果，末尾打印 RESULT: P
 ```
 
 测试覆盖：首页→关卡选择→开始、游戏内菜单暂停与返回主页、点错扣时与红叉、走近变清、放大后上下环顾、点中眼镜过关与戴镜动画、超时失败。
+
+## 抖音小游戏工程与 CLI
+
+`douyin/` 是独立的抖音小游戏工程，保留原本的浏览器版 `index.html`。运行 `douyin:build` 会将 `src/scene.js` 的房间绘制与 `scripts/douyin-runtime.js` 的小游戏运行逻辑合成 `douyin/game.js`。小游戏版使用 `tt.createCanvas` 和 `tt.onTouch*`，不依赖浏览器 DOM。
+
+`douyin/project.config.json` 当前使用开发者工具的测试号 `testappId`，可用于本地调试和扫码预览。上传版本前，先把它替换为小游戏控制台分配的正式 AppID。安装抖音开发者工具后，在项目根目录执行：
+
+```bash
+npm install
+npm run douyin:build
+npm run douyin:smoke
+npm run douyin:login
+npm run douyin:open
+npm run douyin:preview
+```
+
+`douyin:open` 会构建并在开发者工具中打开工程；`douyin:preview` 会生成扫码预览。需要上传测试版本时，显式提供更新说明：
+
+```bash
+npm run douyin:upload -- --app-version 0.1.0 --app-changelog "接入抖音小游戏"
+```
+
+三个命令都调用本项目安装的 `tt-minigame-ide-cli`（`tmg`）。`douyin:build`、`douyin:check` 和 `douyin:smoke` 无需 AppID 或平台登录。扫码预览、上传和真机兼容性仍需在抖音开发者工具中验证。

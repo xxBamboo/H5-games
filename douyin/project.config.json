@@ -1,0 +1,7 @@
+{
+  "appid": "testappId",
+  "projectname": "我的眼镜在哪里",
+  "setting": {
+    "es6": true
+  }
+}
